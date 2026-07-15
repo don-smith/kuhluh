@@ -1,47 +1,39 @@
-import React from 'react'
-import {connect} from 'react-redux'
+import React, { useRef } from 'react'
+import { useMutation } from '@tanstack/react-query'
 
-import {toggleColorForm, addNewColor} from '../actions'
+import useStore from '../store'
 
-let colorName = null
+const AddColor = () => {
+  const inputRef = useRef(null)
+  const { isColorFormVisible, toggleColorForm } = useStore()
 
-const AddColor = props => {
+  const mutation = useMutation({
+    mutationFn: (colorName) =>
+      fetch('/color', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ color: colorName })
+      }),
+    onSuccess: () => toggleColorForm()
+  })
+
   const link = (
-    <a href='#' onClick={props.showColorForm}>Add uh kuhluh</a>
+    <a href='#' onClick={e => { e.preventDefault(); toggleColorForm() }}>Add uh kuhluh</a>
   )
 
   const form = (
     <p>
       New kuhluh: {' '}
-      <input type='text' ref={elem => { colorName = elem }} /> {' '}
-      <button onClick={() => props.addNewColor(colorName.value)}>Add</button>
+      <input type='text' ref={inputRef} /> {' '}
+      <button onClick={() => mutation.mutate(inputRef.current.value)}>Add</button>
     </p>
   )
 
-  const control = props.isColorFormVisible ? form : link
-
   return (
     <div className='add-color'>
-      {props.isWaitingOnApi ? null : control}
+      {mutation.isPending ? null : (isColorFormVisible ? form : link)}
     </div>
   )
 }
 
-const mapStateToProps = ({isColorFormVisible, isWaitingOnApi}) => {
-  return {
-    isColorFormVisible,
-    isWaitingOnApi
-  }
-}
-
-const mapDispatchToProps = dispatch => {
-  return {
-    showColorForm: () => { dispatch(toggleColorForm()) },
-    addNewColor: newColor => { dispatch(addNewColor(newColor)) }
-  }
-}
-
-export default connect(
-  mapStateToProps,
-  mapDispatchToProps
-)(AddColor)
+export default AddColor

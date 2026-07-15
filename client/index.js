@@ -1,25 +1,14 @@
 import React from 'react'
-import {render} from 'react-dom'
-import {createStore, applyMiddleware, compose} from 'redux'
-import thunk from 'redux-thunk'
-
-import {Provider} from 'react-redux'
+import { createRoot } from 'react-dom/client'
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 
 import App from './components/App'
-import reducers from './reducers'
 
-let store = createStore(
-  reducers, compose(
-    applyMiddleware(thunk),
-    window.__REDUX_DEVTOOLS_EXTENSION__ && window.__REDUX_DEVTOOLS_EXTENSION__()
-  )
+const queryClient = new QueryClient()
+
+const root = createRoot(document.getElementById('app'))
+root.render(
+  <QueryClientProvider client={queryClient}>
+    <App />
+  </QueryClientProvider>
 )
-
-document.addEventListener('DOMContentLoaded', () => {
-  render(
-    <Provider store={store}>
-      <App />
-    </Provider>,
-    document.getElementById('app')
-  )
-})

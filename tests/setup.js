@@ -1,6 +1,2 @@
-import enzyme from 'enzyme'
-import Adapter from 'enzyme-adapter-react-16'
-
-enzyme.configure({
-  adapter: new Adapter()
-})
+// Setup file — runs before each test suite.
+// Any global setup goes here (mocks, polyfills, etc.)

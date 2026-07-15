@@ -3,7 +3,6 @@ const path = require('path')
 module.exports = {
   mode: 'development',
   entry: './client/index.js',
-  mode: 'development',
   output: {
     path: path.join(__dirname, 'server/static'),
     filename: 'bundle.js'
@@ -14,6 +13,10 @@ module.exports = {
         test: /\.jsx?$/,
         loader: 'babel-loader',
         exclude: /node_modules/
+      },
+      {
+        test: /\.css$/,
+        use: ['style-loader', 'css-loader']
       }
     ]
   },
