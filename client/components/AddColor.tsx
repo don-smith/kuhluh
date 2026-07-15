@@ -1,14 +1,14 @@
-import React, { useRef } from 'react'
+import { useRef } from 'react'
 import { useMutation } from '@tanstack/react-query'
 
-import useStore from '../store'
+import useStore from '../store.js'
 
 const AddColor = () => {
-  const inputRef = useRef(null)
+  const inputRef = useRef<HTMLInputElement>(null)
   const { isColorFormVisible, toggleColorForm } = useStore()
 
   const mutation = useMutation({
-    mutationFn: (colorName) =>
+    mutationFn: (colorName: string) =>
       fetch('/color', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -25,7 +25,7 @@ const AddColor = () => {
     <p>
       New kuhluh: {' '}
       <input type='text' ref={inputRef} /> {' '}
-      <button onClick={() => mutation.mutate(inputRef.current.value)}>Add</button>
+      <button onClick={() => mutation.mutate(inputRef.current!.value)}>Add</button>
     </p>
   )
 

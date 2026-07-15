@@ -1,7 +1,11 @@
 import { create } from 'zustand'
 
-// Client-only UI state. Server state (color data, loading) is managed by TanStack Query.
-const useStore = create((set) => ({
+interface StoreState {
+  isColorFormVisible: boolean
+  toggleColorForm: () => void
+}
+
+const useStore = create<StoreState>((set) => ({
   isColorFormVisible: false,
   toggleColorForm: () => set((s) => ({ isColorFormVisible: !s.isColorFormVisible }))
 }))
