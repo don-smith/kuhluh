@@ -76,7 +76,7 @@ mutation.mutate("PapayaWhip")             ← TanStack useMutation
     │  mutation.isPending → true          ← hide form/button
     ▼
 Express POST /color
-    │  db.addColor("PapayaWhip", cb) ... 2s delay ... callback(null)
+    │  await db.addColor("PapayaWhip") ... 2s delay ... resolved
     │  res.sendStatus(201)
     ▼
 TanStack Query: onSuccess fires
@@ -94,34 +94,37 @@ The old `SAVING_NEW_COLOR` → `SAVED_NEW_COLOR` thunk/reducer pair becomes a si
 
 | File | Lines | What it does |
 |---|---|---|
-| `index.js` | 12 | Entry point. Creates React 18 root with `createRoot()`, wraps app in `<QueryClientProvider>`. No Redux provider, no middleware composition, no devtools wiring. |
-| `store.js` | 8 | Zustand store. One field (`isColorFormVisible`), one action (`toggleColorForm`). That's the entire client-state layer. |
-| `components/App.jsx` | 10 | Stateless shell. Renders an `<h1>` and `<ColorViewer />`. |
-| `components/ColorViewer.jsx` | 47 | **The main component.** Uses `useQuery` with `enabled: false` so the query sits idle until the user clicks. `refetch()` triggers the fetch; `isFetching` drives the loading spinner; `data.name` drives the colour swatch. `hasRequested` (local `useState`) controls whether we show the initial empty swatch or not — a distinction TanStack Query doesn't handle because the query itself determines "has data ever been loaded?". |
-| `components/AddColor.jsx` | 38 | Form toggle via `useStore()` (Zustand). Colour submission via `useMutation` (TanStack Query). Uses `useRef` for the input value instead of the old module-level `let colorName = null`. `mutation.isPending` hides the form/link while the POST is in flight. |
+| `index.tsx` | Entry point. `createRoot()` with a null-check on `getElementById`. Wraps app in `<QueryClientProvider>`. No Redux, no CJS `require()`. |
+| `store.ts` | Zustand store typed with `StoreState` interface. One field (`isColorFormVisible`), one action (`toggleColorForm`). |
+| `components/App.tsx` | Stateless shell. Renders an `<h1>` and `<ColorViewer />`. No explicit React import needed (JSX automatic runtime). |
+| `components/ColorViewer.tsx` | **The main component.** Uses `useQuery<Color>` typed with the shared `Color` interface. `enabled: false` + `refetch()` for on-demand fetching. `handleGetColor` typed as `React.MouseEvent`. |
+| `components/AddColor.tsx` | Form toggle via typed `useStore()`. Colour submission via `useMutation` with typed `mutationFn: (colorName: string)`. `useRef<HTMLInputElement>` for the input instead of the old module-level `let colorName = null`. `mutation.isPending` hides the form/link while the POST is in flight. |
 
 ### Server (`server/`)
 
 | File | What it does |
 |---|---|
-| `index.js` | Starts Express on port 3000 |
-| `server.js` | Configures Express: `express.json()`, `cors()`, serves `server/static/`, mounts `/color` routes |
-| `routes/colors.js` | Three routes: `GET /color` (random), `GET /color/all`, `POST /color` |
-| `db.js` | In-memory colour store with 2-second artificial `setTimeout` delays. Returns callbacks so the API feels realistic. |
+| `index.ts` | Starts Express on port 3000. `import.meta.dir` replaces CJS `__dirname`. |
+| `server.ts` | Configures Express: `express.json()`, `cors()`, serves `server/static/`, mounts `/color` routes. ESM with `import path from 'node:path'`. |
+| `routes/colors.ts` | Three routes: `GET /color` (random), `GET /color/all`, `POST /color`. Uses `async/await` instead of callbacks. Typed `Request`/`Response` from Express. |
+| `db.ts` | In-memory colour store with 2-second artificial `setTimeout` delays. Returns **Promises** instead of the old Node callback pattern. Exports typed `Color` interface.
 
 ### Tests (`tests/`)
 
 | File | What it does |
 |---|---|
-| `setup.js` | Empty placeholder — `@testing-library/jest-dom` is imported directly in test files |
-| `index.test.js` | One test: renders `<App />` inside a QueryClientProvider wrapper and asserts the heading is "Kuhluhs". Uses `render()` and `screen.getByRole()` from React Testing Library instead of enzyme's `shallow()` + `.find()`. |
+| `setup.ts` | Creates a `happy-dom` `Window` and registers its DOM globals (`document`, `window`, etc.) so `@testing-library/react` can render components in Bun's test runner. Configured via `bunfig.toml` → `[test].preload`. |
+| `index.test.tsx` | One test: renders `<App />` inside a `QueryClientProvider` wrapper and asserts the heading is "Kuhluhs". Uses Bun's `test`/`expect` from `bun:test` and React Testing Library's `render()`/`screen`. No `jest-dom` — plain `.textContent` assertion. |
 
 ### Config
 
 | File | What it does |
 |---|---|
-| `webpack.config.js` | Webpack 5. Single entry (`client/index.js`), Babel-loader for JSX, bundles to `server/static/bundle.js`. |
-| `package.json` | React 18, TanStack Query 5, Zustand 5, Express 4. Babel 7 presets with `runtime: "automatic"` (no `import React` needed). Jest 29 with `jsdom` environment. |
+| `tsconfig.json` | TypeScript configuration for editor support (Bun doesn't need it to run). `strict: true`, `jsx: "react-jsx"` (automatic runtime), `moduleResolution: "bundler"`. |
+| `bunfig.toml` | Bun project config. Configures `[test].preload` to load `tests/setup.ts` (DOM environment) before tests. |
+| `bun.lock` | Lockfile for Bun (text format, replaces `package-lock.json`). Commit this. |
+| `package.json` | React 18, TanStack Query 5, Zustand 5, Express 4. `"type": "module"` for ESM. `devDependencies` only needs `@testing-library/react`, `@types/*`, `happy-dom`, and `bun-types`. No webpack, babel, jest, or CSS loaders — Bun handles all of that natively. |
+| `types.ts` | Shared `Color` interface (`{ id: number, name: string }`). Imported by server, client, and tests.
 
 ---
 
@@ -170,7 +173,21 @@ You could argue that `isColorFormVisible` should just be local `useState` in `Ad
 
 ### `useRef` instead of module-level mutables
 
-The old code used `let colorName = null` at module scope and assigned it via a callback ref. This is fragile — it breaks if the component ever renders more than once. `useRef(null)` gives each component instance its own stable reference.
+The old code used `let colorName = null` at module scope and assigned it via a callback ref. This is fragile — it breaks if the component ever renders more than once. `useRef<HTMLInputElement>(null)` gives each component instance its own stable, typed reference.
+
+### Bun: one tool instead of five
+
+Bun replaces five separate tools this project previously needed:
+
+| Instead of | Bun provides |
+|---|---|
+| Node.js | `bun run` (runs TS/TSX natively) |
+| npm / yarn | `bun install` (and `bun.lock` lockfile) |
+| webpack + babel | `bun build` (bundles TSX→JS in 26ms) |
+| Jest + jsdom | `bun test` (native test runner, happy-dom preload) |
+| tsc | built-in transpiler (no emit step needed) |
+
+The dev script (`bun start`) runs the bundler in watch mode and the server concurrently — no webpack-dev-server, no babel config.
 
 ---
 
